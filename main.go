@@ -25,6 +25,7 @@ func main() {
 	println(">>> gmime")
 	msg := gmime.NewMessage()
 	msg.SetText("test")
+	msg.SetHtml("html")
 	msg.Embed(&gmime.EmailAttachment{
 		Content: []byte("test"),
 	})

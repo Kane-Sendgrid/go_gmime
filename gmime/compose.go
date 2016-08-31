@@ -102,7 +102,7 @@ func (m *Message) gmimize() error {
 		//         - text/html
 		//     - embedded image 1
 		//     - embedded image 2
-		relatedPart := C.g_mime_multipart_new_with_subtype(cStringRelated)
+		relatedPart := newMultiPartWithSubtype(cStringRelated)
 		defer C.g_object_unref(relatedPart)
 		C.g_mime_multipart_add(relatedPart, contentPart)
 		contentPart = anyToGMimeObject(unsafe.Pointer(relatedPart))
