@@ -5,6 +5,18 @@ package gmime
 #include <stdlib.h>
 #include <string.h>
 #include <gmime/gmime.h>
+
+ssize_t raw_header_writer(GMimeStream *stream, const char *name, const char *value)
+{
+	ssize_t nwritten;
+	char *val;
+
+	val = g_strdup_printf("%s: %s\n", name, value);
+	nwritten = g_mime_stream_write_string (stream, val);
+	g_free (val);
+
+	return nwritten;
+}
 */
 import "C"
 import (
@@ -42,6 +54,12 @@ type Message struct {
 	html     string
 	embeds   []*EmailAttachment
 	attaches []*EmailAttachment
+	headers  []*EmailHeader
+}
+
+type EmailHeader struct {
+	Name  string
+	Value string
 }
 
 func NewMessage() *Message {
@@ -62,6 +80,10 @@ func (m *Message) Embed(a *EmailAttachment) {
 
 func (m *Message) Attach(a *EmailAttachment) {
 	m.attaches = append(m.attaches, a)
+}
+
+func (m *Message) AppendHeader(h *EmailHeader) {
+	m.headers = append(m.headers, h)
 }
 
 func (m *Message) gmimize() error {
@@ -104,6 +126,14 @@ func (m *Message) gmimize() error {
 
 	message := C.g_mime_message_new(C.TRUE)
 	defer C.g_object_unref(message)
+
+	headerList := C.g_mime_object_get_header_list(anyToGMimeObject(unsafe.Pointer(message)))
+	C.g_mime_header_list_register_writer(headerList, C.CString("test"), (C.GMimeHeaderWriter)(unsafe.Pointer(C.raw_header_writer)))
+
+	for _, h := range m.headers {
+		C.g_mime_object_append_header(anyToGMimeObject(unsafe.Pointer(message)), C.CString(h.Name), C.CString(h.Value))
+	}
+
 	C.g_mime_message_set_mime_part(message, contentPart)
 
 	ostream := C.g_mime_stream_fs_new(C.dup(C.fileno(C.stdout)))

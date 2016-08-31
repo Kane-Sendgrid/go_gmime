@@ -28,6 +28,10 @@ func main() {
 	msg.Embed(&gmime.EmailAttachment{
 		Content: []byte("test"),
 	})
+	msg.AppendHeader(&gmime.EmailHeader{
+		Name:  "test",
+		Value: "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest",
+	})
 
 	msg.Print()
 	return
