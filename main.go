@@ -25,10 +25,9 @@ func main() {
 	println(">>> gmime")
 	msg := gmime.NewMessage()
 	msg.SetText("test")
-	msg.Embed(
-		&gmime.EmailAttachment{
-			Content: []byte("test"),
-		})
+	msg.Embed(&gmime.EmailAttachment{
+		Content: []byte("test"),
+	})
 
 	msg.Print()
 	return
