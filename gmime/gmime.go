@@ -11,6 +11,11 @@ static gboolean object_is_object(GTypeInstance *obj) {
         return G_IS_OBJECT(obj);
 }
 
+void gmime_custom_init() {
+	char *s[] = {"UTF-8", NULL};
+	g_mime_set_user_charsets((const char**)s);
+}
+
 */
 import "C"
 import "unsafe"
@@ -19,6 +24,7 @@ import "unsafe"
 func init() {
 	println(">>> init gmime")
 	C.g_mime_init(0)
+	C.gmime_custom_init()
 }
 
 //Shutdown This function really needed only for valgrind

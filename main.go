@@ -32,6 +32,15 @@ func main() {
 	msg.AppendHeader(&gmime.EmailHeader{
 		Name:  "test",
 		Value: "testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttest",
+		Raw:   true,
+	})
+	msg.AppendHeader(&gmime.EmailHeader{
+		Name:  "Subject",
+		Value: "test subject привет test subject привет test subject привет test subject привет test subject привет test subject привет",
+	})
+	msg.AppendHeader(&gmime.EmailHeader{
+		Name:  "custom header",
+		Value: "some value here",
 	})
 
 	msg.Print()
