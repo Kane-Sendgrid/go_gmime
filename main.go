@@ -43,6 +43,10 @@ func main() {
 		Value: "some value here",
 	})
 
+	for _, h := range msg.EncodedHeaders() {
+		fmt.Println(h)
+	}
+
 	msg.Print()
 	return
 

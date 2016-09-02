@@ -6,31 +6,6 @@ package gmime
 #include <stdarg.h>
 #include <string.h>
 #include <gmime/gmime.h>
-
-struct CustomGMimeHeaderList {
-	GMimeStream *stream;
-	GHashTable *writers;
-};
-
-char *call_g_mime_utils_header_printf(const char *format, const char *name, const char *value) {
-	return g_mime_utils_header_printf(format, name, value);
-}
-
-ssize_t call_writer(GMimeHeaderWriter writer, GMimeStream *stream, const char *name, const char *value) {
-	return writer(stream, name, value);
-}
-
-ssize_t raw_header_writer(GMimeStream *stream, const char *name, const char *value)
-{
-	ssize_t nwritten;
-	char *val;
-
-	val = g_strdup_printf("%s: %s\n", name, value);
-	nwritten = g_mime_stream_write_string (stream, val);
-	g_free (val);
-
-	return nwritten;
-}
 */
 import "C"
 import (
@@ -52,9 +27,10 @@ var (
 	cStringPlain = C.CString("plain")
 	cStringHTML  = C.CString("html")
 
-	cStringContentID   = C.CString("Content-Id")
-	cStringApplication = C.CString("application")
-	cStringOctetStream = C.CString("octet-stream")
+	cStringContentID    = C.CString("Content-Id")
+	cStringApplication  = C.CString("application")
+	cStringOctetStream  = C.CString("octet-stream")
+	cStringHeaderFormat = C.CString("%s: %s\n")
 )
 
 var (
@@ -116,8 +92,11 @@ func (m *Message) PrependHeader(h *EmailHeader) {
 	m.headers = append([]*EmailHeader{h}, m.headers...)
 }
 
-func (m *Message) EncodedHeaders() {
-
+func (m *Message) EncodedHeaders() []*EmailHeader {
+	message := C.g_mime_message_new(C.TRUE)
+	defer C.g_object_unref(message)
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers)
+	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
 }
 
 func (m *Message) gmimize() error {
@@ -173,59 +152,14 @@ func (m *Message) gmimize() error {
 	message := C.g_mime_message_new(C.TRUE)
 	defer C.g_object_unref(message)
 
-	headerList := C.g_mime_object_get_header_list(anyToGMimeObject(unsafe.Pointer(message)))
-	for _, h := range m.headers {
-		name := C.CString(h.Name)   // needs free
-		value := C.CString(h.Value) // needs free
-		if h.Raw {
-			C.g_mime_header_list_register_writer(headerList, name, (C.GMimeHeaderWriter)(unsafe.Pointer(C.raw_header_writer)))
-			C.g_mime_object_prepend_header(anyToGMimeObject(unsafe.Pointer(message)), name, value)
-		} else {
-			encodedValue := C.g_mime_utils_header_encode_text(value) // needs g_free
-			//TODO: support append/prepend
-			C.g_mime_object_prepend_header(anyToGMimeObject(unsafe.Pointer(message)), name, encodedValue)
-			C.g_free(C.gpointer(encodedValue))
-		}
-
-		C.free(unsafe.Pointer(name))
-		C.free(unsafe.Pointer(value))
-	}
-
-	var iter C.GMimeHeaderIter
-	ok := C.g_mime_header_list_get_iter(headerList, &iter)
-	if ok == C.TRUE {
-		writers := (*C.struct_CustomGMimeHeaderList)(unsafe.Pointer(headerList)).writers
-		for {
-			if val := C.g_mime_header_iter_get_value(&iter); val != nil {
-				name := C.g_mime_header_iter_get_name(&iter)
-				writer := (C.GMimeHeaderWriter)(C.g_hash_table_lookup(writers, name))
-				if writer != nil {
-					stream := C.g_mime_stream_mem_new()
-					C.call_writer(writer, stream, name, val)
-					byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
-					C.g_byte_array_append(byteArray, (*C.guint8)(unsafe.Pointer(cStringEmpty)), 1)
-					str := C.GoString((*C.char)(unsafe.Pointer(byteArray.data)))
-					fmt.Println(str)
-					C.g_object_unref(stream)
-				} else {
-					data := C.call_g_mime_utils_header_printf(C.CString("%s: %s\n"), name, val)
-					str := C.GoString((*C.char)(unsafe.Pointer(data)))
-					fmt.Println(str)
-					C.g_free(data)
-				}
-			}
-			more := C.g_mime_header_iter_next(&iter)
-			if more == C.FALSE {
-				break
-			}
-		}
-	}
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers)
 
 	C.g_mime_message_set_mime_part(message, contentPart)
 
 	ostream := C.g_mime_stream_fs_new(C.dup(C.fileno(C.stdout)))
 	defer C.g_object_unref(ostream)
 
+	fmt.Println(">>>>> MESSAGE >>>>>")
 	C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), ostream)
 	return nil
 }
