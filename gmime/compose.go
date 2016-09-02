@@ -11,7 +11,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"unsafe"
 )
 
@@ -110,43 +109,28 @@ func (m *Message) gmimize() error {
 	//     - Attachment 1
 	//     - Attachment 2
 	var contentPart *C.GMimeObject
-	contentPart, err := textHTMLPart(m.text, m.html)
+	contentPart, err := textHTMLPart(m.text, m.html) // need unref
 	if err != nil {
 		return err
 	}
-	defer C.g_object_unref(contentPart)
+	defer C.g_object_unref(contentPart) // unref
 
 	if len(m.embeds) > 0 {
 		// if there are embeds - add "related" part
-		relatedPart := newMultiPartWithSubtype(cStringRelated)
-		defer C.g_object_unref(relatedPart)
+		relatedPart := newMultiPartWithSubtype(cStringRelated) // need unref
+		defer C.g_object_unref(relatedPart)                    // unref
 		C.g_mime_multipart_add(relatedPart, contentPart)
 		contentPart = anyToGMimeObject(unsafe.Pointer(relatedPart))
+		addAttachments(relatedPart, m.embeds)
+	}
 
-		for _, e := range m.embeds {
-			text := (*C.char)(unsafe.Pointer(&e.Content[0]))
-			mem := C.g_mime_stream_mem_new_with_buffer(text, C.strlen(text))                        // needs unref
-			content := C.g_mime_data_wrapper_new_with_stream(mem, C.GMIME_CONTENT_ENCODING_DEFAULT) // needs unref
-			C.g_object_unref(mem)
-
-			var part *C.GMimePart
-			mimeSplit := strings.Split(e.MimeType, "/")
-			if len(mimeSplit) == 2 {
-				cStringMimeType := C.CString(mimeSplit[0])
-				cStringMimeSubType := C.CString(mimeSplit[1])
-				part = C.g_mime_part_new_with_type(cStringMimeType, cStringMimeSubType) // needs unref
-				C.free(unsafe.Pointer(cStringMimeType))
-				C.free(unsafe.Pointer(cStringMimeSubType))
-			} else {
-				part = C.g_mime_part_new_with_type(cStringApplication, cStringOctetStream) // needs unref
-			}
-			C.g_mime_part_set_content_encoding(part, C.GMIME_CONTENT_ENCODING_BASE64)
-			C.g_mime_part_set_content_object(part, content)
-			C.g_object_unref(content)
-			C.g_mime_object_append_header(anyToGMimeObject(unsafe.Pointer(part)), cStringContentID, C.CString("test"))
-			C.g_mime_multipart_add(relatedPart, anyToGMimeObject(unsafe.Pointer(part)))
-			C.g_object_unref(part)
-		}
+	if len(m.attaches) > 0 {
+		// if there are attaches - add "mixed" part
+		mixedPart := newMultiPartWithSubtype(cStringMixed) // need unref
+		defer C.g_object_unref(mixedPart)                  // unref
+		C.g_mime_multipart_add(mixedPart, contentPart)
+		contentPart = anyToGMimeObject(unsafe.Pointer(mixedPart))
+		addAttachments(mixedPart, m.attaches)
 	}
 
 	message := C.g_mime_message_new(C.TRUE)
