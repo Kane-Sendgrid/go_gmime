@@ -50,7 +50,9 @@ func main() {
 		fmt.Println(h)
 	}
 
-	msg.Print()
+	b, _ := msg.BytesBorrow()
+	fmt.Println(string(b))
+	msg.BytesReturn(b)
 	return
 
 	subtype := C.CString("alternative")

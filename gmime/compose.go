@@ -11,6 +11,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"unsafe"
 )
 
@@ -34,6 +35,7 @@ var (
 
 var (
 	ErrNoContent = errors.New("No content (text or html)")
+	ErrWrite     = errors.New("Error writing message to stream")
 )
 
 type EmailAttachment struct {
@@ -98,7 +100,68 @@ func (m *Message) EncodedHeaders() []*EmailHeader {
 	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
 }
 
-func (m *Message) gmimize() error {
+func (m *Message) Bytes() ([]byte, error) {
+	message, err := m.gmimize()
+	if err != nil {
+		return nil, err
+	}
+
+	stream := C.g_mime_stream_mem_new() // need unref
+	defer C.g_object_unref(stream)      // unref
+	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
+	if nWritten <= 0 {
+		return nil, ErrWrite
+	}
+	// byteArray is owned by stream and will be freed with it
+	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
+	return C.GoBytes(unsafe.Pointer(byteArray.data), (C.int)(nWritten)), nil
+}
+
+// BytesBorrow returns byte slice that caller has to return with BytesReturn
+func (m *Message) BytesBorrow() ([]byte, error) {
+	message, err := m.gmimize()
+	if err != nil {
+		return nil, err
+	}
+
+	stream := C.g_mime_stream_mem_new() // need unref
+	defer C.g_object_unref(stream)      // unref
+	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
+	if nWritten <= 0 {
+		return nil, ErrWrite
+	}
+	// byteArray is owned by stream and will be freed with it
+	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
+	C.g_mime_stream_mem_set_owner((*C.GMimeStreamMem)(unsafe.Pointer(stream)), C.FALSE) // tell stream that we own GByteArray
+	h := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(byteArray.data)),
+		Len:  (int)(nWritten),
+		Cap:  (int)(nWritten),
+	}
+	s := *(*[]byte)(unsafe.Pointer(&h))
+	C.g_byte_array_free(byteArray, C.FALSE) // free GByteArray structure, but keep byteArray->data allocated, we will free it in BytesReturn
+	return s, nil
+}
+
+func (m *Message) BytesReturn(b []byte) {
+	C.g_free(unsafe.Pointer(&b[0]))
+}
+
+func (m *Message) Print() error {
+	message, err := m.gmimize()
+	if err != nil {
+		return err
+	}
+	ostream := C.g_mime_stream_fs_new(C.dup(C.fileno(C.stdout)))
+	defer C.g_object_unref(ostream)
+
+	fmt.Println(">>>>> MESSAGE >>>>>")
+	C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), ostream)
+	return nil
+}
+
+// returns *GMimeMessage, need unref
+func (m *Message) gmimize() (*C.GMimeMessage, error) {
 	// - mixed
 	//     - related
 	//         - alternative
@@ -111,7 +174,7 @@ func (m *Message) gmimize() error {
 	var contentPart *C.GMimeObject
 	contentPart, err := textHTMLPart(m.text, m.html) // need unref
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer C.g_object_unref(contentPart) // unref
 
@@ -133,25 +196,11 @@ func (m *Message) gmimize() error {
 		addAttachments(mixedPart, m.attaches)
 	}
 
-	message := C.g_mime_message_new(C.TRUE)
-	defer C.g_object_unref(message)
+	message := C.g_mime_message_new(C.TRUE) // this message is returned, caller to unref
 
 	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers)
 
 	C.g_mime_message_set_mime_part(message, contentPart)
 
-	ostream := C.g_mime_stream_fs_new(C.dup(C.fileno(C.stdout)))
-	defer C.g_object_unref(ostream)
-
-	fmt.Println(">>>>> MESSAGE >>>>>")
-	C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), ostream)
-	return nil
-}
-
-func (m *Message) String() error {
-	return nil
-}
-
-func (m *Message) Print() {
-	fmt.Println(m.gmimize())
+	return message, nil
 }
