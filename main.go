@@ -46,6 +46,17 @@ func main() {
 		Value: "some value here",
 	})
 
+	msg.AddRecipient(&gmime.EmailAddress{
+		AddressType: gmime.AddressTo,
+		Name:        "John Doe",
+		Address:     "john@example.com",
+	})
+	msg.AddRecipient(&gmime.EmailAddress{
+		AddressType: gmime.AddressTo,
+		Name:        "Кто то странный",
+		Address:     "john_jr@example.com",
+	})
+
 	for _, h := range msg.EncodedHeaders() {
 		fmt.Println(h)
 	}

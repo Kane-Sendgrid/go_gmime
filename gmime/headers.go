@@ -38,7 +38,7 @@ import (
 	"unsafe"
 )
 
-func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader) {
+func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader, recipients []*EmailAddress) {
 	headerList := C.g_mime_object_get_header_list(anyToGMimeObject(unsafe.Pointer(obj)))
 	for _, h := range headers {
 		name := C.CString(h.Name)   // needs free
@@ -55,6 +55,14 @@ func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader) {
 
 		C.free(unsafe.Pointer(name))
 		C.free(unsafe.Pointer(value))
+	}
+
+	for _, a := range recipients {
+		name := C.CString(a.Name)       // needs free
+		address := C.CString(a.Address) // needs free
+		C.g_mime_message_add_recipient((*C.GMimeMessage)(unsafe.Pointer(obj)), (C.GMimeRecipientType)(a.AddressType), name, address)
+		C.free(unsafe.Pointer(name))
+		C.free(unsafe.Pointer(address))
 	}
 }
 

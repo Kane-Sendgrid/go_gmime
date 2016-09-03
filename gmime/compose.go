@@ -38,6 +38,14 @@ var (
 	ErrWrite     = errors.New("Error writing message to stream")
 )
 
+type AddressType int
+
+const (
+	AddressTo  AddressType = C.GMIME_RECIPIENT_TYPE_TO
+	AddressCC  AddressType = C.GMIME_RECIPIENT_TYPE_CC
+	AddressBCC AddressType = C.GMIME_RECIPIENT_TYPE_BCC
+)
+
 type EmailAttachment struct {
 	FileName    string
 	MimeType    string
@@ -47,11 +55,12 @@ type EmailAttachment struct {
 }
 
 type Message struct {
-	text     string
-	html     string
-	embeds   []*EmailAttachment
-	attaches []*EmailAttachment
-	headers  []*EmailHeader
+	text       string
+	html       string
+	embeds     []*EmailAttachment
+	attaches   []*EmailAttachment
+	headers    []*EmailHeader
+	recipients []*EmailAddress
 }
 
 type EmailHeader struct {
@@ -63,6 +72,12 @@ type EmailHeader struct {
 type EncodedHeader struct {
 	Name  string
 	Value string
+}
+
+type EmailAddress struct {
+	AddressType AddressType
+	Name        string
+	Address     string
 }
 
 func NewMessage() *Message {
@@ -93,10 +108,14 @@ func (m *Message) PrependHeader(h *EmailHeader) {
 	m.headers = append([]*EmailHeader{h}, m.headers...)
 }
 
+func (m *Message) AddRecipient(a *EmailAddress) {
+	m.recipients = append(m.recipients, a)
+}
+
 func (m *Message) EncodedHeaders() []*EmailHeader {
 	message := C.g_mime_message_new(C.TRUE)
 	defer C.g_object_unref(message)
-	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers)
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.recipients)
 	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
 }
 
@@ -198,7 +217,7 @@ func (m *Message) gmimize() (*C.GMimeMessage, error) {
 
 	message := C.g_mime_message_new(C.TRUE) // this message is returned, caller to unref
 
-	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers)
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.recipients)
 
 	C.g_mime_message_set_mime_part(message, contentPart)
 
