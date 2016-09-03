@@ -119,7 +119,7 @@ func (m *Message) EncodedHeaders() []*EmailHeader {
 	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
 }
 
-func (m *Message) Bytes() ([]byte, error) {
+func (m *Message) Export() ([]byte, error) {
 	message, err := m.gmimize()
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func (m *Message) Bytes() ([]byte, error) {
 }
 
 // BytesBorrow returns byte slice that caller has to return with BytesReturn
-func (m *Message) BytesBorrow() ([]byte, error) {
+func (m *Message) Bytes() ([]byte, error) {
 	message, err := m.gmimize()
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func (m *Message) BytesBorrow() ([]byte, error) {
 	return s, nil
 }
 
-func (m *Message) BytesReturn(b []byte) {
+func (m *Message) Put(b []byte) {
 	C.g_free(unsafe.Pointer(&b[0]))
 }
 
