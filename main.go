@@ -27,9 +27,11 @@ func main() {
 	msg.SetText([]byte("test"))
 	msg.SetHtml([]byte("html"))
 	msg.Embed(&gmime.EmailAttachment{
-		Content: []byte("test"),
+		Content:   []byte("test"),
+		ContentID: "test-id",
 	})
 	msg.Attach(&gmime.EmailAttachment{
+		FileName:      "test-file.jpg",
 		Content:       []byte("test attach"),
 		InputEncoding: &gmime.EncodingBase64,
 	})

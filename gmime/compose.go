@@ -102,10 +102,16 @@ func (m *Message) SetHtml(body []byte) {
 }
 
 func (m *Message) Embed(a *EmailAttachment) {
+	if a.Disposition == "" {
+		a.Disposition = C.GMIME_DISPOSITION_INLINE
+	}
 	m.embeds = append(m.embeds, a)
 }
 
 func (m *Message) Attach(a *EmailAttachment) {
+	if a.Disposition == "" {
+		a.Disposition = C.GMIME_DISPOSITION_ATTACHMENT
+	}
 	m.attaches = append(m.attaches, a)
 }
 
