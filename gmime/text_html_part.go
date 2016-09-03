@@ -7,12 +7,21 @@ package gmime
 #include <gmime/gmime.h>
 */
 import "C"
-import "unsafe"
+import (
+	"reflect"
+	"unsafe"
+)
+
+func bytesToString(b []byte) string {
+	bh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	sh := reflect.StringHeader{bh.Data, bh.Len}
+	return *(*string)(unsafe.Pointer(&sh))
+}
 
 // returns MimePart as GMimeObject
 // caller is responsible for unref
-func mimePartFromString(body string) *C.GMimeObject {
-	text := C.CString(body)
+func mimePartFromBytes(body []byte) *C.GMimeObject {
+	text := C.CString(bytesToString(body))
 	defer C.free(unsafe.Pointer(text))
 
 	mem := C.g_mime_stream_mem_new_with_buffer(text, C.strlen(text))
@@ -33,28 +42,28 @@ func mimePartFromString(body string) *C.GMimeObject {
 
 // returns GMimeObject
 // caller responsible for unref
-func textHTMLPart(text, html string) (*C.GMimeObject, error) {
+func textHTMLPart(text, html []byte) (*C.GMimeObject, error) {
 	var textPart, htmlPart *C.GMimeObject
 
-	if text != "" {
-		textPart = mimePartFromString(text)
+	if len(text) != 0 {
+		textPart = mimePartFromBytes(text)
 	}
 
-	if html != "" {
-		htmlPart = mimePartFromString(html)
+	if len(html) != 0 {
+		htmlPart = mimePartFromBytes(html)
 	}
 
 	switch {
-	case text != "" && html != "":
+	case len(text) != 0 && len(html) != 0:
 		// should be multipart/alternative
 		multipart := C.g_mime_multipart_new_with_subtype(cStringAlternative)
 		C.g_mime_multipart_add(multipart, textPart)
 		C.g_mime_multipart_add(multipart, htmlPart)
 		return anyToGMimeObject(unsafe.Pointer(multipart)), nil
-	case text != "":
+	case len(text) != 0:
 		// only text part
 		return textPart, nil
-	case html != "":
+	case len(html) != 0:
 		// only html part
 		return htmlPart, nil
 	default:

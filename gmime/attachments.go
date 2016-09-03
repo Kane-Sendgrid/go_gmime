@@ -16,9 +16,17 @@ import (
 func addAttachments(obj *C.GMimeMultipart, attaches []*EmailAttachment) {
 	for _, e := range attaches {
 		text := (*C.char)(unsafe.Pointer(&e.Content[0]))
-		mem := C.g_mime_stream_mem_new_with_buffer(text, C.strlen(text))                        // needs unref
-		content := C.g_mime_data_wrapper_new_with_stream(mem, C.GMIME_CONTENT_ENCODING_DEFAULT) // needs unref
-		C.g_object_unref(mem)                                                                   // unref
+		inputEncoding := e.InputEncoding
+		outputEncoding := e.OutputEncoding
+		if inputEncoding == nil {
+			inputEncoding = &EncodingDefault
+		}
+		if outputEncoding == nil {
+			outputEncoding = &EncodingBase64
+		}
+		mem := C.g_mime_stream_mem_new_with_buffer(text, C.strlen(text))                                // needs unref
+		content := C.g_mime_data_wrapper_new_with_stream(mem, (C.GMimeContentEncoding)(*inputEncoding)) // needs unref
+		C.g_object_unref(mem)                                                                           // unref
 
 		var part *C.GMimePart // needs unref
 		mimeSplit := strings.Split(e.MimeType, "/")
@@ -31,7 +39,7 @@ func addAttachments(obj *C.GMimeMultipart, attaches []*EmailAttachment) {
 		} else {
 			part = C.g_mime_part_new_with_type(cStringApplication, cStringOctetStream)
 		}
-		C.g_mime_part_set_content_encoding(part, C.GMIME_CONTENT_ENCODING_BASE64)
+		C.g_mime_part_set_content_encoding(part, (C.GMimeContentEncoding)(*outputEncoding))
 		C.g_mime_part_set_content_object(part, content)
 		C.g_object_unref(content) // unref
 		C.g_mime_object_append_header(anyToGMimeObject(unsafe.Pointer(part)), cStringContentID, C.CString("test"))

@@ -24,13 +24,14 @@ import (
 func main() {
 	println(">>> gmime")
 	msg := gmime.NewMessage()
-	msg.SetText("test")
-	msg.SetHtml("html")
+	msg.SetText([]byte("test"))
+	msg.SetHtml([]byte("html"))
 	msg.Embed(&gmime.EmailAttachment{
 		Content: []byte("test"),
 	})
 	msg.Attach(&gmime.EmailAttachment{
-		Content: []byte("test attach"),
+		Content:       []byte("test attach"),
+		InputEncoding: &gmime.EncodingBase64,
 	})
 	msg.AppendHeader(&gmime.EmailHeader{
 		Name:  "test",
@@ -46,16 +47,22 @@ func main() {
 		Value: "some value here",
 	})
 
-	msg.AddRecipient(&gmime.EmailAddress{
+	msg.AddAddress(&gmime.EmailAddress{
 		AddressType: gmime.AddressTo,
 		Name:        "John Doe",
 		Address:     "john@example.com",
 	})
-	msg.AddRecipient(&gmime.EmailAddress{
-		AddressType: gmime.AddressTo,
+	msg.AddAddress(&gmime.EmailAddress{
+		AddressType: gmime.AddressCC,
 		Name:        "Кто то странный",
 		Address:     "john_jr@example.com",
 	})
+	msg.AddAddress(&gmime.EmailAddress{
+		AddressType: gmime.AddressFrom,
+		Name:        "from me привет",
+		Address:     "from@example.com",
+	})
+	fmt.Println(gmime.AddressTo, gmime.AddressCC, gmime.AddressFrom, gmime.AddressReplyTo)
 
 	for _, h := range msg.EncodedHeaders() {
 		fmt.Println(h)

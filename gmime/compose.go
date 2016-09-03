@@ -23,14 +23,16 @@ var (
 	cStringCharset     = C.CString("charset")
 	cStringCharsetUTF8 = C.CString("utf-8")
 
-	cStringText  = C.CString("text")
-	cStringPlain = C.CString("plain")
-	cStringHTML  = C.CString("html")
+	cStringText   = C.CString("text")
+	cStringPlain  = C.CString("plain")
+	cStringHTML   = C.CString("html")
+	cStringBase64 = C.CString("base64")
 
-	cStringContentID    = C.CString("Content-Id")
-	cStringApplication  = C.CString("application")
-	cStringOctetStream  = C.CString("octet-stream")
-	cStringHeaderFormat = C.CString("%s: %s\n")
+	cStringContentID               = C.CString("Content-Id")
+	cStringApplication             = C.CString("application")
+	cStringOctetStream             = C.CString("octet-stream")
+	cStringHeaderFormat            = C.CString("%s: %s\n")
+	cStringContentTransferEncoding = C.CString("Content-Transfer-Encoding")
 )
 
 var (
@@ -39,28 +41,37 @@ var (
 )
 
 type AddressType int
+type EncodingType int
 
 const (
-	AddressTo  AddressType = C.GMIME_RECIPIENT_TYPE_TO
-	AddressCC  AddressType = C.GMIME_RECIPIENT_TYPE_CC
-	AddressBCC AddressType = C.GMIME_RECIPIENT_TYPE_BCC
+	AddressTo      AddressType = C.GMIME_RECIPIENT_TYPE_TO
+	AddressCC                  = C.GMIME_RECIPIENT_TYPE_CC
+	AddressFrom                = 100 + iota
+	AddressReplyTo             = 100 + iota
+)
+
+var (
+	EncodingDefault EncodingType = C.GMIME_CONTENT_ENCODING_DEFAULT
+	EncodingBase64  EncodingType = C.GMIME_CONTENT_ENCODING_BASE64
 )
 
 type EmailAttachment struct {
-	FileName    string
-	MimeType    string
-	ContentID   string
-	Disposition string
-	Content     []byte
+	FileName       string
+	MimeType       string
+	ContentID      string
+	Disposition    string
+	Content        []byte
+	InputEncoding  *EncodingType
+	OutputEncoding *EncodingType
 }
 
 type Message struct {
-	text       string
-	html       string
-	embeds     []*EmailAttachment
-	attaches   []*EmailAttachment
-	headers    []*EmailHeader
-	recipients []*EmailAddress
+	text      []byte
+	html      []byte
+	embeds    []*EmailAttachment
+	attaches  []*EmailAttachment
+	headers   []*EmailHeader
+	addresses []*EmailAddress
 }
 
 type EmailHeader struct {
@@ -84,11 +95,11 @@ func NewMessage() *Message {
 	return &Message{}
 }
 
-func (m *Message) SetText(body string) {
+func (m *Message) SetText(body []byte) {
 	m.text = body
 }
 
-func (m *Message) SetHtml(body string) {
+func (m *Message) SetHtml(body []byte) {
 	m.html = body
 }
 
@@ -108,14 +119,14 @@ func (m *Message) PrependHeader(h *EmailHeader) {
 	m.headers = append([]*EmailHeader{h}, m.headers...)
 }
 
-func (m *Message) AddRecipient(a *EmailAddress) {
-	m.recipients = append(m.recipients, a)
+func (m *Message) AddAddress(a *EmailAddress) {
+	m.addresses = append(m.addresses, a)
 }
 
 func (m *Message) EncodedHeaders() []*EmailHeader {
 	message := C.g_mime_message_new(C.TRUE)
 	defer C.g_object_unref(message)
-	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.recipients)
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.addresses)
 	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
 }
 
@@ -217,7 +228,7 @@ func (m *Message) gmimize() (*C.GMimeMessage, error) {
 
 	message := C.g_mime_message_new(C.TRUE) // this message is returned, caller to unref
 
-	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.recipients)
+	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.addresses)
 
 	C.g_mime_message_set_mime_part(message, contentPart)
 

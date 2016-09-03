@@ -38,7 +38,7 @@ import (
 	"unsafe"
 )
 
-func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader, recipients []*EmailAddress) {
+func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader, addresses []*EmailAddress) {
 	headerList := C.g_mime_object_get_header_list(anyToGMimeObject(unsafe.Pointer(obj)))
 	for _, h := range headers {
 		name := C.CString(h.Name)   // needs free
@@ -57,12 +57,24 @@ func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader, recipients []*Ema
 		C.free(unsafe.Pointer(value))
 	}
 
-	for _, a := range recipients {
-		name := C.CString(a.Name)       // needs free
-		address := C.CString(a.Address) // needs free
-		C.g_mime_message_add_recipient((*C.GMimeMessage)(unsafe.Pointer(obj)), (C.GMimeRecipientType)(a.AddressType), name, address)
-		C.free(unsafe.Pointer(name))
-		C.free(unsafe.Pointer(address))
+	message := (*C.GMimeMessage)(unsafe.Pointer(obj))
+	for _, a := range addresses {
+		switch a.AddressType {
+		case AddressTo, AddressCC:
+			name := C.CString(a.Name)       // needs free
+			address := C.CString(a.Address) // needs free
+			C.g_mime_message_add_recipient(message, (C.GMimeRecipientType)(a.AddressType), name, address)
+			C.free(unsafe.Pointer(name))
+			C.free(unsafe.Pointer(address))
+		case AddressFrom:
+			addr := C.CString(a.Name + " " + "<" + a.Address + ">")
+			C.g_mime_message_set_sender(message, addr)
+			C.free(unsafe.Pointer(addr))
+		case AddressReplyTo:
+			addr := C.CString(a.Name + " " + "<" + a.Address + ">")
+			C.g_mime_message_set_reply_to(message, addr)
+			C.free(unsafe.Pointer(addr))
+		}
 	}
 }
 
