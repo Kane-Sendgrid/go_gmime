@@ -9,6 +9,8 @@ package gmime
 */
 import "C"
 import (
+	"mime"
+	"path/filepath"
 	"strings"
 	"unsafe"
 )
@@ -29,16 +31,21 @@ func addAttachments(obj *C.GMimeMultipart, attaches []*EmailAttachment) {
 		C.g_object_unref(mem)                                                                           // unref
 
 		var part *C.GMimePart // needs unref
-		mimeSplit := strings.Split(e.MimeType, "/")
-		if len(mimeSplit) == 2 {
-			cStringMimeType := C.CString(mimeSplit[0])
-			cStringMimeSubType := C.CString(mimeSplit[1])
-			part = C.g_mime_part_new_with_type(cStringMimeType, cStringMimeSubType)
-			C.free(unsafe.Pointer(cStringMimeType))
-			C.free(unsafe.Pointer(cStringMimeSubType))
-		} else {
-			part = C.g_mime_part_new_with_type(cStringApplication, cStringOctetStream)
+		mediaType := e.MimeType
+		if mediaType == "" {
+			mediaType = mime.TypeByExtension(filepath.Ext(e.FileName))
 		}
+		if mediaType == "" {
+			mediaType = "application/octet-stream"
+		}
+
+		mimeSplit := strings.Split(mediaType, "/")
+		cStringMimeType := C.CString(mimeSplit[0])
+		cStringMimeSubType := C.CString(mimeSplit[1])
+		part = C.g_mime_part_new_with_type(cStringMimeType, cStringMimeSubType)
+		C.free(unsafe.Pointer(cStringMimeType))
+		C.free(unsafe.Pointer(cStringMimeSubType))
+
 		C.g_mime_part_set_content_encoding(part, (C.GMimeContentEncoding)(*outputEncoding))
 		C.g_mime_part_set_content_object(part, content)
 		C.g_object_unref(content) // unref

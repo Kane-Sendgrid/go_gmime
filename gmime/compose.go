@@ -29,8 +29,6 @@ var (
 	cStringBase64 = C.CString("base64")
 
 	cStringContentID               = C.CString("Content-Id")
-	cStringApplication             = C.CString("application")
-	cStringOctetStream             = C.CString("octet-stream")
 	cStringHeaderFormat            = C.CString("%s: %s\n")
 	cStringContentTransferEncoding = C.CString("Content-Transfer-Encoding")
 )
