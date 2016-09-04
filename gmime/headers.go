@@ -78,9 +78,9 @@ func injectHeaders(obj *C.GMimeObject, headers []*EmailHeader, addresses []*Emai
 	}
 }
 
-func encodedHeadersFromGmime(obj *C.GMimeObject) []*EmailHeader {
+func encodedHeadersFromGmime(obj *C.GMimeObject) []*EncodedHeader {
 	var iter C.GMimeHeaderIter
-	var returnHeaders []*EmailHeader
+	var returnHeaders []*EncodedHeader
 	headerList := C.g_mime_object_get_header_list(anyToGMimeObject(unsafe.Pointer(obj)))
 	if C.g_mime_header_list_get_iter(headerList, &iter) == C.TRUE {
 		writers := (*C.struct_CustomGMimeHeaderList)(unsafe.Pointer(headerList)).writers
@@ -103,7 +103,7 @@ func encodedHeadersFromGmime(obj *C.GMimeObject) []*EmailHeader {
 				}
 
 				headerNameValue := strings.SplitN(encodedHeaderValue, ": ", 2)
-				returnHeaders = append(returnHeaders, &EmailHeader{
+				returnHeaders = append(returnHeaders, &EncodedHeader{
 					Name:  headerNameValue[0],
 					Value: headerNameValue[1],
 				})

@@ -22,7 +22,6 @@ import "unsafe"
 
 // This function call automatically by runtime
 func init() {
-	println(">>> init gmime")
 	C.g_mime_init(0)
 	C.gmime_custom_init()
 }

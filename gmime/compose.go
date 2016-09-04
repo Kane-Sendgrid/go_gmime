@@ -3,8 +3,6 @@ package gmime
 /*
 #cgo pkg-config: gmime-2.6
 #include <stdlib.h>
-#include <stdarg.h>
-#include <string.h>
 #include <gmime/gmime.h>
 */
 import "C"
@@ -78,11 +76,6 @@ type EmailHeader struct {
 	Raw   bool
 }
 
-type EncodedHeader struct {
-	Name  string
-	Value string
-}
-
 type EmailAddress struct {
 	AddressType AddressType
 	Name        string
@@ -127,36 +120,13 @@ func (m *Message) AddAddress(a *EmailAddress) {
 	m.addresses = append(m.addresses, a)
 }
 
-func (m *Message) EncodedHeaders() []*EmailHeader {
-	message := C.g_mime_message_new(C.TRUE)
-	defer C.g_object_unref(message)
-	injectHeaders(anyToGMimeObject(unsafe.Pointer(message)), m.headers, m.addresses)
-	return encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message)))
-}
-
-func (m *Message) Export() ([]byte, error) {
-	message, err := m.gmimize()
+// ExportSplit
+func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
+	message, err := m.gmimize() // needs unref
 	if err != nil {
 		return nil, err
 	}
-
-	stream := C.g_mime_stream_mem_new() // need unref
-	defer C.g_object_unref(stream)      // unref
-	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
-	if nWritten <= 0 {
-		return nil, ErrWrite
-	}
-	// byteArray is owned by stream and will be freed with it
-	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
-	return C.GoBytes(unsafe.Pointer(byteArray.data), (C.int)(nWritten)), nil
-}
-
-// BytesBorrow returns byte slice that caller has to return with BytesReturn
-func (m *Message) Bytes() ([]byte, error) {
-	message, err := m.gmimize()
-	if err != nil {
-		return nil, err
-	}
+	defer C.g_object_unref(message) // unref
 
 	stream := C.g_mime_stream_mem_new() // need unref
 	defer C.g_object_unref(stream)      // unref
@@ -174,11 +144,30 @@ func (m *Message) Bytes() ([]byte, error) {
 	}
 	s := *(*[]byte)(unsafe.Pointer(&h))
 	C.g_byte_array_free(byteArray, C.FALSE) // free GByteArray structure, but keep byteArray->data allocated, we will free it in BytesReturn
-	return s, nil
+
+	mimeMessage := &MIMEMessage{
+		EncodedHeaders: encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message))),
+		Body:           s,
+	}
+	return mimeMessage, nil
 }
 
-func (m *Message) Put(b []byte) {
-	C.g_free(unsafe.Pointer(&b[0]))
+func (m *Message) Export() ([]byte, error) {
+	message, err := m.gmimize() // need unref
+	if err != nil {
+		return nil, err
+	}
+	defer C.g_object_unref(message)
+
+	stream := C.g_mime_stream_mem_new() // need unref
+	defer C.g_object_unref(stream)      // unref
+	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
+	if nWritten <= 0 {
+		return nil, ErrWrite
+	}
+	// byteArray is owned by stream and will be freed with it
+	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
+	return C.GoBytes(unsafe.Pointer(byteArray.data), (C.int)(nWritten)), nil
 }
 
 func (m *Message) Print() error {

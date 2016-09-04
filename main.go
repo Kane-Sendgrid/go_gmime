@@ -66,13 +66,13 @@ func main() {
 	})
 	fmt.Println(gmime.AddressTo, gmime.AddressCC, gmime.AddressFrom, gmime.AddressReplyTo)
 
-	for _, h := range msg.EncodedHeaders() {
+	mimeMessage, _ := msg.ExportMIMEMessage()
+	for _, h := range mimeMessage.EncodedHeaders {
 		fmt.Println(h)
 	}
 
-	b, _ := msg.Bytes()
-	fmt.Println(string(b))
-	msg.Put(b)
+	fmt.Println(string(mimeMessage.Body))
+	mimeMessage.Put()
 	return
 
 	subtype := C.CString("alternative")
