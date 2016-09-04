@@ -72,7 +72,7 @@ func main() {
 	}
 
 	fmt.Println(string(mimeMessage.Body))
-	mimeMessage.Put()
+	mimeMessage.Close()
 	return
 
 	subtype := C.CString("alternative")

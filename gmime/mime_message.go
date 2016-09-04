@@ -18,6 +18,6 @@ type MIMEMessage struct {
 	Body           []byte
 }
 
-func (m *MIMEMessage) Put() {
+func (m *MIMEMessage) Close() {
 	C.g_free(unsafe.Pointer(&m.Body[0]))
 }

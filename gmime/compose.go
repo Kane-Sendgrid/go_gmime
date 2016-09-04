@@ -134,7 +134,6 @@ func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
 	if nWritten <= 0 {
 		return nil, ErrWrite
 	}
-	// byteArray is owned by stream and will be freed with it
 	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
 	C.g_mime_stream_mem_set_owner((*C.GMimeStreamMem)(unsafe.Pointer(stream)), C.FALSE) // tell stream that we own GByteArray
 	h := reflect.SliceHeader{
@@ -143,7 +142,7 @@ func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
 		Cap:  (int)(nWritten),
 	}
 	s := *(*[]byte)(unsafe.Pointer(&h))
-	C.g_byte_array_free(byteArray, C.FALSE) // free GByteArray structure, but keep byteArray->data allocated, we will free it in BytesReturn
+	C.g_byte_array_free(byteArray, C.FALSE) // free GByteArray structure, but keep byteArray->data allocated, we will free it in MIMEMessage.Close()
 
 	mimeMessage := &MIMEMessage{
 		EncodedHeaders: encodedHeadersFromGmime(anyToGMimeObject(unsafe.Pointer(message))),
