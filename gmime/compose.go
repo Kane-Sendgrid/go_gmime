@@ -128,14 +128,24 @@ func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
 	}
 	defer C.g_object_unref(message) // unref
 
-	stream := C.g_mime_stream_mem_new() // need unref
-	defer C.g_object_unref(stream)      // unref
+	rawStream := C.g_mime_stream_mem_new() // need unref
+	defer C.g_object_unref(rawStream)      // unref
+
+	stream := C.g_mime_stream_filter_new(rawStream)
+	// defer C.g_object_unref(stream) // unref
+
+	filterCRLF := C.g_mime_filter_crlf_new(C.TRUE, C.TRUE)
+	// defer C.g_object_unref(filterCRLF) // unref
+	C.g_mime_stream_filter_add((*C.GMimeStreamFilter)(unsafe.Pointer(stream)), filterCRLF)
+
 	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
 	if nWritten <= 0 {
 		return nil, ErrWrite
 	}
-	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(stream)))
-	C.g_mime_stream_mem_set_owner((*C.GMimeStreamMem)(unsafe.Pointer(stream)), C.FALSE) // tell stream that we own GByteArray
+
+	byteArray := C.g_mime_stream_mem_get_byte_array((*C.GMimeStreamMem)(unsafe.Pointer(rawStream)))
+	nWritten = C.ssize_t(byteArray.len)
+	C.g_mime_stream_mem_set_owner((*C.GMimeStreamMem)(unsafe.Pointer(rawStream)), C.FALSE) // tell stream that we own GByteArray
 	h := reflect.SliceHeader{
 		Data: uintptr(unsafe.Pointer(byteArray.data)),
 		Len:  (int)(nWritten),
