@@ -134,7 +134,7 @@ func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
 	stream := C.g_mime_stream_filter_new(rawStream)
 	defer C.g_object_unref(stream) // unref
 
-	filterCRLF := C.g_mime_filter_crlf_new(C.TRUE, C.TRUE)
+	filterCRLF := C.g_mime_filter_crlf_new(C.TRUE, C.FALSE)
 	defer C.g_object_unref(filterCRLF) // unref
 
 	C.g_mime_stream_filter_add((*C.GMimeStreamFilter)(unsafe.Pointer(stream)), filterCRLF)
