@@ -132,10 +132,11 @@ func (m *Message) ExportMIMEMessage() (*MIMEMessage, error) {
 	defer C.g_object_unref(rawStream)      // unref
 
 	stream := C.g_mime_stream_filter_new(rawStream)
-	// defer C.g_object_unref(stream) // unref
+	defer C.g_object_unref(stream) // unref
 
 	filterCRLF := C.g_mime_filter_crlf_new(C.TRUE, C.TRUE)
-	// defer C.g_object_unref(filterCRLF) // unref
+	defer C.g_object_unref(filterCRLF) // unref
+
 	C.g_mime_stream_filter_add((*C.GMimeStreamFilter)(unsafe.Pointer(stream)), filterCRLF)
 
 	nWritten := C.g_mime_object_write_to_stream((*C.GMimeObject)(unsafe.Pointer(message)), stream)
